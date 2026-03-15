@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Platform</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+
+<!-- ─── Header ─────────────────────────────────────────────────────────────── -->
+<header class="app-header">
+  <div>
+    <h1>📈 Trading Platform</h1>
+    <div class="tagline">Real-time quotes · Options · Weather · Shipping · News</div>
+  </div>
+  <div class="header-status">
+    {% if finnhub_configured %}
+      <span class="badge badge-ok">✓ Finnhub</span>
+    {% else %}
+      <span class="badge badge-warn">⚠ Finnhub</span>
+    {% endif %}
+    {% if newsapi_configured %}
+      <span class="badge badge-ok">✓ NewsAPI</span>
+    {% else %}
+      <span class="badge badge-warn">⚠ NewsAPI</span>
+    {% endif %}
+    {% if searates_configured %}
+      <span class="badge badge-ok">✓ SeaRates</span>
+    {% else %}
+      <span class="badge badge-warn">⚠ SeaRates</span>
+    {% endif %}
+  </div>
+</header>
+
+<!-- ─── API key warnings ────────────────────────────────────────────────────── -->
+{% if not finnhub_configured or not newsapi_configured or not searates_configured %}
+<div style="padding:.75rem 1.5rem; background:var(--surface); border-bottom:1px solid var(--border)">
+  <div class="alert alert-warn">
+    ⚙️ Some API keys are not configured. Copy <code>.env.example</code> to <code>.env</code> and add your keys.
+    See the <strong>README</strong> for instructions.
+  </div>
+</div>
+{% endif %}
+
+<!-- ─── Tab navigation ──────────────────────────────────────────────────────── -->
+<nav class="nav-tabs">
+  <button class="nav-tab active" data-tab="tab-markets" data-loaded="0">📊 Markets</button>
+  <button class="nav-tab" data-tab="tab-options"  data-loaded="0">🔖 Options</button>
+  <button class="nav-tab" data-tab="tab-weather"  data-loaded="0">🌤️ Weather</button>
+  <button class="nav-tab" data-tab="tab-shipping" data-loaded="0">🚢 Shipping</button>
+  <button class="nav-tab" data-tab="tab-news"     data-loaded="0">📰 News</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     MARKETS TAB
+     ═══════════════════════════════════════════════════════════════════════ -->
+<section id="tab-markets" class="tab-panel active">
+  <div class="card">
+    <div class="card-header">
+      <h2>📊 Stock Quotes</h2>
+      <div class="flex flex-gap items-center">
+        <span class="text-sm text-muted">Watchlist: {{ watchlist | join(", ") }}</span>
+        <button id="btn-refresh-quotes" class="secondary">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if not finnhub_configured %}
+        <div class="alert alert-warn">
+          ⚠ <code>FINNHUB_API_KEY</code> is not set. Add it to <code>.env</code> to see live quotes.
+          Get a free key at <a href="https://finnhub.io/register" target="_blank">finnhub.io/register</a>.
+        </div>
+      {% endif %}
+      <div id="quotes-grid" class="grid-3">
+        {% if quotes %}
+          {% for q in quotes %}
+            {% if q.get("error") %}
+              <div class="quote-card">
+                <div class="quote-symbol">{{ q.get("symbol", "?") }}</div>
+                <div class="alert alert-error">{{ q["error"] }}</div>
+              </div>
+            {% else %}
+              {% set dp = q.get("dp", 0) %}
+              {% set cls = "up" if dp > 0 else ("down" if dp < 0 else "flat") %}
+              {% set arrow = "▲" if dp > 0 else ("▼" if dp < 0 else "–") %}
+              <div class="quote-card">
+                <div class="quote-symbol">{{ q.get("symbol") }}</div>
+                <div class="quote-price">
+                  {% if q.get("c") %}${{ "%.2f"|format(q["c"]) }}{% else %}–{% endif %}
+                </div>
+                <div class="quote-change {{ cls }}">
+                  {{ arrow }} {{ "%.2f"|format(dp|abs) }}%
+                  ({% if dp >= 0 %}+{% endif %}{{ "%.2f"|format(q.get("d", 0)) }})
+                </div>
+                <div class="quote-meta">
+                  O: ${{ "%.2f"|format(q.get("o", 0)) }} &nbsp;
+                  H: ${{ "%.2f"|format(q.get("h", 0)) }} &nbsp;
+                  L: ${{ "%.2f"|format(q.get("l", 0)) }} &nbsp;
+                  PC: ${{ "%.2f"|format(q.get("pc", 0)) }}
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          <div class="loading-overlay"><span class="spinner"></span> Loading quotes…</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     OPTIONS TAB
+     ═══════════════════════════════════════════════════════════════════════ -->
+<section id="tab-options" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <h2>🔖 Options Chain</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="options-symbol">Symbol</label>
+          <input type="text" id="options-symbol" value="{{ watchlist[0] if watchlist else 'AAPL' }}"
+                 placeholder="AAPL" style="width:110px">
+        </div>
+        <button id="btn-load-options">Load Options</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-info" style="margin-bottom:1rem">
+        ℹ Options chain data requires a Finnhub paid plan. If you are on the free tier,
+        a fallback message will be displayed. You can upgrade at
+        <a href="https://finnhub.io/pricing" target="_blank">finnhub.io/pricing</a>.
+      </div>
+      <div id="options-content">
+        <p class="text-muted">Enter a symbol and click <em>Load Options</em>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     WEATHER TAB
+     ═══════════════════════════════════════════════════════════════════════ -->
+<section id="tab-weather" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <h2>🌤️ Weather &amp; Forecast</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="weather-city-input">City</label>
+          <input type="text" id="weather-city-input"
+                 value="{{ weather_city }}" placeholder="New York" style="width:160px">
+        </div>
+        <button id="btn-weather-search">Search</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <p class="text-muted text-sm" style="margin-bottom:.75rem">
+        Location: <strong id="weather-location">{{ weather.get("location", weather_city) }}</strong>
+        &nbsp;·&nbsp; Powered by <a href="https://open-meteo.com" target="_blank">Open-Meteo</a> (no API key needed)
+      </p>
+      <div id="weather-content">
+        {% if weather and not weather.get("error") %}
+          {% set cur = weather.get("current", {}) %}
+          <div class="weather-current">
+            <div class="weather-icon" id="weather-icon-srv">
+              {% set code = cur.get("code", 0)|int %}
+              {% if code == 0 %}☀️
+              {% elif code <= 2 %}🌤️
+              {% elif code == 3 %}☁️
+              {% elif code <= 48 %}🌫️
+              {% elif code <= 57 %}🌦️
+              {% elif code <= 67 %}🌧️
+              {% elif code <= 77 %}❄️
+              {% elif code <= 82 %}🌦️
+              {% elif code <= 86 %}🌨️
+              {% else %}⛈️{% endif %}
+            </div>
+            <div>
+              <div class="weather-temp">{{ cur.get("temperature", "–") }}°C</div>
+              <div>{{ cur.get("description", "") }}</div>
+              <div class="text-muted text-sm">
+                Feels like {{ cur.get("feels_like", "–") }}°C &nbsp;|&nbsp;
+                Humidity {{ cur.get("humidity", "–") }}% &nbsp;|&nbsp;
+                Wind {{ cur.get("wind_speed", "–") }} km/h
+              </div>
+            </div>
+          </div>
+          <div class="weather-forecast">
+            {% for f in weather.get("forecast", [])[:7] %}
+              <div class="forecast-day">
+                <div class="date">{{ f.date }}</div>
+                <div class="icon">
+                  {% set fc = f.code|int if f.code else 0 %}
+                  {% if fc == 0 %}☀️
+                  {% elif fc <= 2 %}🌤️
+                  {% elif fc == 3 %}☁️
+                  {% elif fc <= 48 %}🌫️
+                  {% elif fc <= 67 %}🌧️
+                  {% elif fc <= 77 %}❄️
+                  {% elif fc <= 82 %}🌦️
+                  {% elif fc <= 86 %}🌨️
+                  {% else %}⛈️{% endif %}
+                </div>
+                <div class="temps">{{ f.temp_max }}° / {{ f.temp_min }}°</div>
+                <div class="text-muted text-sm">{{ f.description }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% elif weather.get("error") %}
+          <div class="alert alert-error">{{ weather["error"] }}</div>
+        {% else %}
+          <div class="loading-overlay"><span class="spinner"></span> Loading weather…</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SHIPPING TAB
+     ═══════════════════════════════════════════════════════════════════════ -->
+<section id="tab-shipping" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <h2>🚢 Shipping Rate Lookup</h2>
+    </div>
+    <div class="card-body">
+      {% if not searates_configured %}
+        <div class="alert alert-warn" style="margin-bottom:1rem">
+          ⚠ <code>SEARATES_API_KEY</code> is not configured. Register at
+          <a href="https://www.searates.com/reference/logistics-explorer/" target="_blank">
+            searates.com</a> to get a key.
+        </div>
+      {% endif %}
+
+      <div class="form-row" style="margin-bottom:1.25rem">
+        <div class="form-group">
+          <label for="ship-origin">Origin Port (LOCODE)</label>
+          <input type="text" id="ship-origin" placeholder="USNYC" value="USNYC">
+        </div>
+        <div class="form-group">
+          <label for="ship-dest">Destination Port (LOCODE)</label>
+          <input type="text" id="ship-dest" placeholder="CNSHA" value="CNSHA">
+        </div>
+        <div class="form-group">
+          <label for="ship-container">Container Type</label>
+          <select id="ship-container">
+            <option value="20DC">20' Dry Container</option>
+            <option value="40DC">40' Dry Container</option>
+            <option value="40HC" selected>40' High Cube</option>
+            <option value="20RF">20' Reefer</option>
+            <option value="40RF">40' Reefer</option>
+            <option value="20OT">20' Open Top</option>
+            <option value="40OT">40' Open Top</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="ship-weight">Weight (kg, optional)</label>
+          <input type="number" id="ship-weight" placeholder="20000" min="0" style="width:130px">
+        </div>
+        <button id="btn-ship-search">Get Rates</button>
+      </div>
+
+      <div id="shipping-results">
+        <p class="text-muted">Fill in the form above and click <em>Get Rates</em>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     NEWS TAB
+     ═══════════════════════════════════════════════════════════════════════ -->
+<section id="tab-news" class="tab-panel">
+  <div class="card">
+    <div class="card-header">
+      <h2>📰 Financial News</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="news-query">Search keyword / ticker</label>
+          <input type="text" id="news-query" placeholder="AAPL, earnings, …" style="width:200px">
+        </div>
+        <button id="btn-news-search">Search</button>
+        <button id="btn-headlines" class="secondary"
+          onclick="document.querySelector('#news-query').value=''; loadNews(null)">
+          Top Headlines
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if not newsapi_configured %}
+        <div class="alert alert-warn" style="margin-bottom:1rem">
+          ⚠ <code>NEWSAPI_API_KEY</code> is not configured. Get a free key at
+          <a href="https://newsapi.org/register" target="_blank">newsapi.org</a>.
+        </div>
+      {% endif %}
+      <div id="news-list">
+        <div class="loading-overlay"><span class="spinner"></span> Loading news…</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
