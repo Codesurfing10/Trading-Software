@@ -73,7 +73,7 @@ async def get_rates(
                 }
             r.raise_for_status()
             data = r.json()
-            result = _normalise(data, origin_port, destination_port, container_type)
+            result = _normalize(data, origin_port, destination_port, container_type)
             cache.set(cache_key, result, ttl=_SHIPPING_TTL)
             return result
     except httpx.HTTPStatusError as exc:
@@ -84,7 +84,7 @@ async def get_rates(
         return {"error": str(exc), "rates": []}
 
 
-def _normalise(
+def _normalize(
     raw: Any,
     origin: str,
     destination: str,

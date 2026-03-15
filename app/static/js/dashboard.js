@@ -75,7 +75,7 @@ async function loadQuotes() {
           <div class="quote-symbol">${q.symbol}</div>
           <div class="quote-price">${q.c ? "$" + fmt.format(q.c) : "–"}</div>
           <div class="quote-change ${cls}">${arrow(dp)} ${fmt.format(Math.abs(dp))}%
-            (${dp > 0 ? "+" : ""}${fmt.format(q.d ?? 0)})</div>
+            (${dp >= 0 ? "+" : ""}${fmt.format(q.d ?? 0)})</div>
           <div class="quote-meta">
             O: $${fmt.format(q.o ?? 0)} &nbsp;
             H: $${fmt.format(q.h ?? 0)} &nbsp;
