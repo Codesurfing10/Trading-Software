@@ -48,7 +48,9 @@ app/
 
 ## Quick Start
 
-### 1. Clone & install dependencies
+### macOS / Linux
+
+#### 1. Clone & install dependencies
 
 ```bash
 git clone https://github.com/Codesurfing10/Trading-Software.git
@@ -56,20 +58,68 @@ cd Trading-Software
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment variables
+#### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
 # Edit .env and add your API keys (see "Getting API Keys" below)
 ```
 
-### 3. Run the app
+#### 3. Run the app
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
 Open **http://localhost:8000** in your browser.
+
+---
+
+### Windows (one-command / double-click)
+
+> **Requires Python 3.10+** — install from [python.org](https://www.python.org/downloads/) and check
+> **"Add python.exe to PATH"** during setup.
+
+#### Option A — double-click (Explorer)
+
+Double-click **`run.bat`** in the repository folder.  
+A terminal window will open and the server will start automatically.
+
+#### Option B — PowerShell
+
+```powershell
+.\run.ps1
+```
+
+Optional parameters:
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-Port` | `8000` | Port to listen on |
+| `-BindHost` | `127.0.0.1` | Host/IP to bind |
+| `-NoReload` | *(off)* | Disable Uvicorn's `--reload` |
+
+```powershell
+# Example: run on port 8001
+.\run.ps1 -Port 8001
+```
+
+#### What happens on first run
+
+1. A virtual environment is created in `.venv`.
+2. All dependencies from `requirements.txt` are installed inside it.
+3. `.env` is created from `.env.example` (only if `.env` does not already exist).
+4. Uvicorn starts and serves the app on **http://127.0.0.1:8000**.
+
+Re-running the script is safe — it is fully idempotent and will **never overwrite** an existing `.env`.
+
+#### Windows troubleshooting
+
+| Problem | Fix |
+|---|---|
+| *"running scripts is disabled on this system"* | `run.bat` already bypasses the policy for that one run. Alternatively, open PowerShell as Administrator and run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once. |
+| *Python not found* | Install Python 3.10+ from [python.org](https://www.python.org/downloads/) and ensure **"Add python.exe to PATH"** is checked, **or** install the [Python launcher (`py`)](https://docs.python.org/3/using/windows.html#launcher) separately. |
+| *Port already in use* | `.\run.ps1 -Port 8001` (or any free port). |
 
 ---
 
