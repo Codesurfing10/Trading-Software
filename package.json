@@ -1,0 +1,13 @@
+{
+  "name": "trading-software",
+  "version": "1.0.0",
+  "description": "Trading Software with Tauri Desktop Wrapper",
+  "scripts": {
+    "build": "tauri build",
+    "start": "tauri dev",
+    "build-backend": "pyinstaller --onefile app/desktop_backend.py"
+  },
+  "dependencies": {
+    "tauri": "^1.0.0"
+  }
+}
